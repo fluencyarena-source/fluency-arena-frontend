@@ -846,6 +846,7 @@ label.fa-label{display:block;font-size:.74rem;font-weight:600;
 <!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="api.js"></script>
 </head>
 <body>
 
@@ -1876,20 +1877,105 @@ function faShowErr(id,msg){const el=document.getElementById(id);if(!el)return;el
 /* ══════════════════════════════════════
    ACTION HANDLERS
 ══════════════════════════════════════ */
-function faDoLogin() {
+
+/* ── Backend ↔ localStorage bridge helpers ── */
+function _backendToLocalUser(u) {
+  if (!u) return null;
+  return {
+    id:              u.id,
+    firstName:       u.first_name  || u.firstName  || '',
+    lastName:        u.last_name   || u.lastName   || '',
+    email:           u.email       || '',
+    mobile:          u.mobile      || '',
+    role:            u.role        || 'student',
+    plan:            u.plan        || 'free',
+    planExpiry:      u.plan_expiry || u.planExpiry || null,
+    profileComplete: u.profile_complete !== undefined ? u.profile_complete : (u.profileComplete || false),
+    dob:             u.dob         || '',
+    stream:          u.stream      || '',
+    preparing:       u.preparing   || [],
+    bio:             u.bio         || '',
+    provider:        u.google_id   ? 'google' : 'email',
+    createdAt:       u.created_at  || u.createdAt  || new Date().toISOString()
+  };
+}
+
+function _syncBackendUserToLocal(backendUser) {
+  try {
+    const local = _backendToLocalUser(backendUser);
+    const users = FA.getAllUsers();
+    const idx   = users.findIndex(u => u.id === local.id || u.email === local.email);
+    if (idx >= 0) users[idx] = { ...users[idx], ...local };
+    else users.push(local);
+    localStorage.setItem('fa_users', JSON.stringify(users));
+    // Update signup log
+    const slogs = JSON.parse(localStorage.getItem('fa_signup_logs')||'[]');
+    if (!slogs.find(s => s.email === local.email)) {
+      slogs.unshift({ name: local.firstName+' '+local.lastName, email: local.email, mobile: local.mobile, plan: local.plan, date: local.createdAt });
+      localStorage.setItem('fa_signup_logs', JSON.stringify(slogs));
+      localStorage.setItem('fa_signup_logs_unseen', 'true');
+    }
+  } catch(e) { console.warn('Sync error:', e); }
+}
+
+function _showToastMsg(html) {
+  const t = document.createElement('div'); t.className='fa-toast';
+  t.innerHTML = html;
+  document.body.appendChild(t);
+  requestAnimationFrame(()=>t.classList.add('show'));
+  setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),400); }, 5000);
+}
+
+/* ── On load: sync backend session to localStorage if JWT exists ── */
+(async function _syncSessionOnLoad() {
+  if (typeof FAApi === 'undefined') return;
+  const token = localStorage.getItem('fa_jwt');
+  if (!token) return;
+  try {
+    const d = await FAApi.getMe();
+    localStorage.setItem('fa_session', JSON.stringify(_backendToLocalUser(d.user)));
+    _syncBackendUserToLocal(d.user);
+    faUpdateNav && faUpdateNav();
+  } catch(e) {
+    // Token expired or invalid — clear it
+    localStorage.removeItem('fa_jwt');
+  }
+})();
+
+async function faDoLogin() {
   const email = (document.getElementById('li-email')?.value||'').trim();
   const pass  =  document.getElementById('li-pass')?.value||'';
   if (!email||!pass) { faShowErr('loginErr','Please fill in all fields.'); return; }
+
+  // Try backend first, fall back to localStorage
+  if (typeof FAApi !== 'undefined') {
+    try {
+      const btn = document.querySelector('#loginModal .btn-primary');
+      if (btn) { btn.disabled = true; btn.textContent = 'Logging in…'; }
+      const d = await FAApi.login(email, pass);
+      if (btn) { btn.disabled = false; btn.textContent = 'Log In →'; }
+      // Sync to localStorage session so rest of app works
+      localStorage.setItem('fa_session', JSON.stringify(_backendToLocalUser(d.user)));
+      faCloseModal('loginModal'); faUpdateNav();
+      if (d.user.deletionCancelled) {
+        _showToastMsg('&#128268; Account deletion cancelled! Welcome back.');
+      }
+      if (!d.user.profile_complete) faOpenModal('profile');
+      if (typeof checkPageAccess === 'function') checkPageAccess();
+      return;
+    } catch(err) {
+      const btn = document.querySelector('#loginModal .btn-primary');
+      if (btn) { btn.disabled = false; btn.textContent = 'Log In →'; }
+      faShowErr('loginErr', err.message || 'Login failed. Please try again.');
+      return;
+    }
+  }
+
+  // localStorage fallback
   const r = FA.login(email, pass);
   if (!r.ok) { faShowErr('loginErr', r.msg); return; }
   faCloseModal('loginModal'); faUpdateNav();
-  // Notify if deletion was cancelled on login
-  if (r.deletionCancelled) {
-    const t = document.createElement('div'); t.className='fa-toast';
-    t.innerHTML = '&#128268; Account deletion cancelled! Welcome back.';
-    document.body.appendChild(t); requestAnimationFrame(()=>t.classList.add('show'));
-    setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(),400); }, 5000);
-  }
+  if (r.deletionCancelled) _showToastMsg('&#128268; Account deletion cancelled! Welcome back.');
   if (!r.user.profileComplete) faOpenModal('profile');
   if (typeof checkPageAccess === 'function') checkPageAccess();
 }
@@ -1898,18 +1984,41 @@ function faDoLogin() {
 function faResendOtp() { _upoToast && _upoToast('OTP resent (dev mode: check console)'); }
 function faVerifyOtp() { _upoToast && _upoToast('OTP disabled in dev mode'); faCloseModal('otpModal'); }
 
-function faDoSignup() {
+async function faDoSignup() {
   const fn   = document.getElementById('su-fn')?.value||'';
   const ln   = document.getElementById('su-ln')?.value||'';
   const em   = document.getElementById('su-em')?.value||'';
   const mob  = (document.getElementById('su-mob')?.value||'').replace(/\s+/g,'').trim();
   const pw   = document.getElementById('su-pw')?.value||'';
   const plan = sessionStorage.getItem('fa_pending_plan')||'free';
-  const r    = FA.signup(fn, ln, em, pw, plan, mob);
+
+  // Try backend first
+  if (typeof FAApi !== 'undefined') {
+    try {
+      const btn = document.querySelector('#signupModal .btn-primary');
+      if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
+      const d = await FAApi.signup(fn, ln, em, mob, pw);
+      if (btn) { btn.disabled = false; btn.textContent = 'Create Free Account →'; }
+      // Sync to localStorage
+      localStorage.setItem('fa_session', JSON.stringify(_backendToLocalUser(d.user)));
+      // Also add to fa_users so admin panel shows them
+      _syncBackendUserToLocal(d.user);
+      sessionStorage.removeItem('fa_pending_plan');
+      faCloseModal('signupModal'); faUpdateNav(); faOpenModal('profile');
+      return;
+    } catch(err) {
+      const btn = document.querySelector('#signupModal .btn-primary');
+      if (btn) { btn.disabled = false; btn.textContent = 'Create Free Account →'; }
+      faShowErr('signupErr', err.message || 'Signup failed. Please try again.');
+      return;
+    }
+  }
+
+  // localStorage fallback
+  const r = FA.signup(fn, ln, em, pw, plan, mob);
   if (!r.ok) { faShowErr('signupErr', r.msg); return; }
   sessionStorage.removeItem('fa_pending_plan');
   faCloseModal('signupModal'); faUpdateNav(); faOpenModal('profile');
-  // TODO: re-enable OTP before going live
 }
 
 /* ── Google Identity Services setup ── */
@@ -2007,8 +2116,8 @@ function faDoProfile() {
 }
 
 function faLogout() {
+  if (typeof FAApi !== 'undefined') FAApi.logout();
   FA.logout();
-  // Close any open UPO before updating nav
   _upoHideAll && _upoHideAll();
   document.body.style.overflow = '';
   faUpdateNav();
