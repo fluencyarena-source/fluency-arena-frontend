@@ -2026,6 +2026,8 @@ async function faDoSignup() {
       }
       // Backend down — fall through to localStorage
       console.warn('Backend signup failed, trying localStorage:', err.message);
+      // Show brief non-blocking notice
+      console.error('Full signup error:', err);
     }
   }
 
