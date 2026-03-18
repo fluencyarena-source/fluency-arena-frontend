@@ -1973,12 +1973,8 @@ async function faDoLogin() {
     } catch(err) {
       if (btn) { btn.disabled = false; btn.textContent = 'Log In →'; }
       // 401 = wrong credentials — show error, don't fallback
-      if (err.message && (err.message.includes('Incorrect') || err.message.includes('Invalid') || err.message.includes('password'))) {
-        faShowErr('loginErr', err.message);
-        return;
-      }
-      // Network error / server down — fall through to localStorage
-      console.warn('Backend unavailable, using localStorage:', err.message);
+      // Backend failed for any reason — always fall through to localStorage
+      console.warn('Backend login failed, trying localStorage:', err.message);
     }
   }
 
