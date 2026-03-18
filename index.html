@@ -2006,17 +2006,20 @@ async function faDoSignup() {
       if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
       const d = await FAApi.signup(fn, ln, em, mob, pw);
       if (btn) { btn.disabled = false; btn.textContent = 'Create Free Account →'; }
-      // Sync to localStorage
+      // Sync to localStorage so admin panel + rest of app sees the user
       localStorage.setItem('fa_session', JSON.stringify(_backendToLocalUser(d.user)));
-      // Also add to fa_users so admin panel shows them
       _syncBackendUserToLocal(d.user);
       sessionStorage.removeItem('fa_pending_plan');
-      faCloseModal('signupModal'); faUpdateNav(); faOpenModal('profile');
+      faCloseModal('signupModal'); faUpdateNav();
+      // Refresh admin panel if open
+      if (typeof renderUsers === 'function') renderUsers();
+      if (typeof renderSignupLogs === 'function') renderSignupLogs();
+      faOpenModal('profile');
       return;
     } catch(err) {
       const btn = document.querySelector('#signupModal .btn-primary');
       if (btn) { btn.disabled = false; btn.textContent = 'Create Free Account →'; }
-      // Only stop for validation errors (email exists etc)
+      // Only block for real validation errors
       if (err.message && (err.message.includes('already') || err.message.includes('registered') || err.message.includes('mobile'))) {
         faShowErr('signupErr', err.message);
         return;
@@ -2030,7 +2033,11 @@ async function faDoSignup() {
   const r = FA.signup(fn, ln, em, pw, plan, mob);
   if (!r.ok) { faShowErr('signupErr', r.msg); return; }
   sessionStorage.removeItem('fa_pending_plan');
-  faCloseModal('signupModal'); faUpdateNav(); faOpenModal('profile');
+  faCloseModal('signupModal'); faUpdateNav();
+  // Refresh admin panel if open
+  if (typeof renderUsers === 'function') renderUsers();
+  if (typeof renderSignupLogs === 'function') renderSignupLogs();
+  faOpenModal('profile');
 }
 
 /* ── Google Identity Services setup ── */
