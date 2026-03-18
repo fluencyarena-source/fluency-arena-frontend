@@ -7,7 +7,7 @@
    const FA_API_URL = 'https://your-app.up.railway.app/api';
 ═══════════════════════════════════════════════════════ */
 
-const FA_API_URL = 'http://localhost:5000/api'; // ← change to Railway URL when deployed
+const FA_API_URL = 'https://fluency-arena.onrender.com/api'; // ← change to Railway URL when deployed
 
 /* ── Token helpers ── */
 const FAApi = {
@@ -152,3 +152,4 @@ const FAApi = {
     console.warn('[FA API] Backend not reachable — running on localStorage fallback');
   }
 })();
+
