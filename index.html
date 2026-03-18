@@ -1472,7 +1472,7 @@ const FA = (() => {
     mobile    = (mobile||'').replace(/\s+/g,'').trim();
     if (!firstName||!lastName)                          return { ok:false, msg:'Please enter your full name.' };
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))     return { ok:false, msg:'Please enter a valid email address.' };
-    if (!mobile || !/^\+?[\d\-]{7,15}$/.test(mobile))  return { ok:false, msg:'Please enter a valid mobile number.' };
+    if (!mobile || !/^(\+91)?[6-9]\d{9}$/.test(mobile))  return { ok:false, msg:'Please enter a valid 10-digit Indian mobile number.' };
     if (!password || password.length < 8)               return { ok:false, msg:'Password must be at least 8 characters.' };
     const users = getUsers();
     if (users.find(u => u.email === email))             return { ok:false, msg:'This email is already registered. Please log in.' };
