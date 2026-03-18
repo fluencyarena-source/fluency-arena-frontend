@@ -1947,31 +1947,34 @@ async function faDoLogin() {
   const pass  =  document.getElementById('li-pass')?.value||'';
   if (!email||!pass) { faShowErr('loginErr','Please fill in all fields.'); return; }
 
-  // Try backend first, fall back to localStorage
+  const btn = document.querySelector('#loginModal .btn-primary');
+
+  // Try backend first
   if (typeof FAApi !== 'undefined') {
     try {
-      const btn = document.querySelector('#loginModal .btn-primary');
       if (btn) { btn.disabled = true; btn.textContent = 'Logging in…'; }
       const d = await FAApi.login(email, pass);
       if (btn) { btn.disabled = false; btn.textContent = 'Log In →'; }
-      // Sync to localStorage session so rest of app works
       localStorage.setItem('fa_session', JSON.stringify(_backendToLocalUser(d.user)));
+      _syncBackendUserToLocal(d.user);
       faCloseModal('loginModal'); faUpdateNav();
-      if (d.user.deletionCancelled) {
-        _showToastMsg('&#128268; Account deletion cancelled! Welcome back.');
-      }
+      if (d.user.deletionCancelled) _showToastMsg('&#128268; Account deletion cancelled! Welcome back.');
       if (!d.user.profile_complete) faOpenModal('profile');
       if (typeof checkPageAccess === 'function') checkPageAccess();
       return;
     } catch(err) {
-      const btn = document.querySelector('#loginModal .btn-primary');
       if (btn) { btn.disabled = false; btn.textContent = 'Log In →'; }
-      faShowErr('loginErr', err.message || 'Login failed. Please try again.');
-      return;
+      // 401 = wrong credentials — show error, don't fallback
+      if (err.message && (err.message.includes('Incorrect') || err.message.includes('Invalid') || err.message.includes('password'))) {
+        faShowErr('loginErr', err.message);
+        return;
+      }
+      // Network error / server down — fall through to localStorage
+      console.warn('Backend unavailable, using localStorage:', err.message);
     }
   }
 
-  // localStorage fallback
+  // localStorage fallback (works offline / when backend is down)
   const r = FA.login(email, pass);
   if (!r.ok) { faShowErr('loginErr', r.msg); return; }
   faCloseModal('loginModal'); faUpdateNav();
