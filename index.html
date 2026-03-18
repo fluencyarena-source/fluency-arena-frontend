@@ -2016,8 +2016,13 @@ async function faDoSignup() {
     } catch(err) {
       const btn = document.querySelector('#signupModal .btn-primary');
       if (btn) { btn.disabled = false; btn.textContent = 'Create Free Account →'; }
-      faShowErr('signupErr', err.message || 'Signup failed. Please try again.');
-      return;
+      // Only stop for validation errors (email exists etc)
+      if (err.message && (err.message.includes('already') || err.message.includes('registered') || err.message.includes('mobile'))) {
+        faShowErr('signupErr', err.message);
+        return;
+      }
+      // Backend down — fall through to localStorage
+      console.warn('Backend signup failed, trying localStorage:', err.message);
     }
   }
 
