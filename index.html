@@ -1421,13 +1421,21 @@ const FA = (() => {
 
   /* ── Seed defaults ── */
   function seedDefaults() {
-    // Never wipe existing users — only ensure admin account exists
+    // Never wipe existing users — only ensure admin accounts exist
     const users = getUsers();
-    const hasAdmin = users.some(u => u.email === 'trijalagrawal63@gmail.com');
+    const hasAdmin = users.some(u => u.email === 'admin@fluencyarena.com');
     if (!hasAdmin) {
-      users.push({ id:'admin_001', firstName:'Trijal', lastName:'Agrawal', email:'trijalagrawal63@gmail.com', password:'Admin@123', role:'administrator', plan:'free', planExpiry:null, profileComplete:true, dob:'1990-01-01', stream:'Other', preparing:['Communication improvement'], provider:'email', createdAt:new Date().toISOString() });
-      saveUsers(users);
+      users.push({ id:'admin_001', firstName:'Admin', lastName:'FA', email:'admin@fluencyarena.com', password:'Admin@123', role:'administrator', plan:'free', planExpiry:null, profileComplete:true, dob:'1990-01-01', stream:'Other', preparing:['Communication improvement'], provider:'email', createdAt:new Date().toISOString() });
     }
+    const hasTrijal = users.some(u => u.email === 'trijalagrawal63@gmail.com');
+    if (!hasTrijal) {
+      users.push({ id:'admin_002', firstName:'Trijal', lastName:'Agrawal', email:'trijalagrawal63@gmail.com', password:'Admin@123', role:'administrator', plan:'free', planExpiry:null, profileComplete:true, dob:'', stream:'', preparing:[], provider:'email', createdAt:new Date().toISOString() });
+    } else {
+      // Already exists — force role to administrator and set password
+      const idx = users.findIndex(u => u.email === 'trijalagrawal63@gmail.com');
+      if (idx >= 0) { users[idx].role = 'administrator'; users[idx].password = 'Admin@123'; }
+    }
+    saveUsers(users);
   }
 
   /* ── Login ── */
@@ -1572,7 +1580,7 @@ const FA = (() => {
 
   /* ── Admin role change (roles only, never plan for students) ── */
   /* Protected accounts — role can never be changed by anyone */
-  const PROTECTED_EMAILS = ['trijalagrawal63@gmail.com'];
+  const PROTECTED_EMAILS = ['admin@fluencyarena.com', 'trijalagrawal63@gmail.com'];
 
   function changeRole(userId, newRole) {
     const users = getUsers();
@@ -1963,19 +1971,14 @@ async function faDoLogin() {
       if (typeof checkPageAccess === 'function') checkPageAccess();
       return;
     } catch(err) {
-  btn.disabled = false; btn.textContent = 'Log In →';
-  
-  // Only stop if it's a wrong password error (401)
-  if (err.message.includes('Incorrect') || err.message.includes('password')) {
-    faShowErr('loginErr', err.message);
-    return;
-  }
-  
-  // Any other error (server down, cold start, network) → fall through to localStorage
-  console.warn('Backend unavailable, using localStorage');
-}
-// localStorage login runs here as fallback
-const r = FA.login(email, pass); 
+      if (btn) { btn.disabled = false; btn.textContent = 'Log In →'; }
+      // 401 = wrong credentials — show error, don't fallback
+      if (err.message && (err.message.includes('Incorrect') || err.message.includes('Invalid') || err.message.includes('password'))) {
+        faShowErr('loginErr', err.message);
+        return;
+      }
+      // Network error / server down — fall through to localStorage
+      console.warn('Backend unavailable, using localStorage:', err.message);
     }
   }
 
@@ -2749,7 +2752,7 @@ function userRowHTML(u, showActions=true, me=null) {
   </div>`;
 }
 
-const _PROTECTED = ['trijalagrawal63@gmail.com'];
+const _PROTECTED = ['admin@fluencyarena.com', 'trijalagrawal63@gmail.com'];
 
 function changeRole(userId, newRole) {
   const u = FA.getAllUsers().find(u => u.id === userId);
