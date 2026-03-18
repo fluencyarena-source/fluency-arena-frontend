@@ -1423,9 +1423,9 @@ const FA = (() => {
   function seedDefaults() {
     // Never wipe existing users — only ensure admin account exists
     const users = getUsers();
-    const hasAdmin = users.some(u => u.email === 'admin@fluencyarena.com');
+    const hasAdmin = users.some(u => u.email === 'trijalagrawal63@gmail.com');
     if (!hasAdmin) {
-      users.push({ id:'admin_001', firstName:'Admin', lastName:'FA', email:'admin@fluencyarena.com', password:'Admin@123', role:'administrator', plan:'free', planExpiry:null, profileComplete:true, dob:'1990-01-01', stream:'Other', preparing:['Communication improvement'], provider:'email', createdAt:new Date().toISOString() });
+      users.push({ id:'admin_001', firstName:'Trijal', lastName:'Agrawal', email:'trijalagrawal63@gmail.com', password:'Admin@123', role:'administrator', plan:'free', planExpiry:null, profileComplete:true, dob:'1990-01-01', stream:'Other', preparing:['Communication improvement'], provider:'email', createdAt:new Date().toISOString() });
       saveUsers(users);
     }
   }
@@ -1572,7 +1572,7 @@ const FA = (() => {
 
   /* ── Admin role change (roles only, never plan for students) ── */
   /* Protected accounts — role can never be changed by anyone */
-  const PROTECTED_EMAILS = ['admin@fluencyarena.com'];
+  const PROTECTED_EMAILS = ['trijalagrawal63@gmail.com'];
 
   function changeRole(userId, newRole) {
     const users = getUsers();
@@ -2749,7 +2749,7 @@ function userRowHTML(u, showActions=true, me=null) {
   </div>`;
 }
 
-const _PROTECTED = ['admin@fluencyarena.com'];
+const _PROTECTED = ['trijalagrawal63@gmail.com'];
 
 function changeRole(userId, newRole) {
   const u = FA.getAllUsers().find(u => u.id === userId);
