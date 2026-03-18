@@ -1963,14 +1963,19 @@ async function faDoLogin() {
       if (typeof checkPageAccess === 'function') checkPageAccess();
       return;
     } catch(err) {
-      if (btn) { btn.disabled = false; btn.textContent = 'Log In →'; }
-      // 401 = wrong credentials — show error, don't fallback
-      if (err.message && (err.message.includes('Incorrect') || err.message.includes('Invalid') || err.message.includes('password'))) {
-        faShowErr('loginErr', err.message);
-        return;
-      }
-      // Network error / server down — fall through to localStorage
-      console.warn('Backend unavailable, using localStorage:', err.message);
+  btn.disabled = false; btn.textContent = 'Log In →';
+  
+  // Only stop if it's a wrong password error (401)
+  if (err.message.includes('Incorrect') || err.message.includes('password')) {
+    faShowErr('loginErr', err.message);
+    return;
+  }
+  
+  // Any other error (server down, cold start, network) → fall through to localStorage
+  console.warn('Backend unavailable, using localStorage');
+}
+// localStorage login runs here as fallback
+const r = FA.login(email, pass); 
     }
   }
 
